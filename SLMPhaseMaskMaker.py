@@ -1,3 +1,8 @@
+"""
+SLMPhaseMaskMaker
+Lloyd Russell 2015
+Implements HOTlab dll (https://github.com/MartinPersson/HOTlab)
+"""
 from ctypes import CDLL, c_int32, c_float, c_char, c_ushort, c_ubyte, POINTER, byref
 from scipy.misc import imread, imsave
 import numpy as np
