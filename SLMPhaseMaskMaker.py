@@ -3,14 +3,30 @@ SLMPhaseMaskMaker
 Lloyd Russell 2015
 Implements HOTlab dll (https://github.com/MartinPersson/HOTlab)
 """
+
 from ctypes import CDLL, c_int32, c_float, c_char, c_ushort, c_ubyte, POINTER, byref
 from scipy.misc import imread, imsave
 import numpy as np
 import time
 import os
+try:
+    # for Python2
+    import Tkinter as tk
+    import tkFileDialog as filedialog
+except ImportError:
+    # for Python3
+    import tkinter as tk
+    from tkinter import filedialog
+import warnings
+warnings.filterwarnings('ignore')
+from skimage.external import tifffile
+
 
 # load targets file, get hot pixel coordinates
-target_img_path = "C:/targets/10spotsTight.tif"
+root = tk.Tk()
+root.withdraw()
+target_img_path = filedialog.askopenfilename()
+# target_img_path = "C:/targets/10spotsTight.tif"
 target_img = imread(target_img_path)
 target_coords = np.nonzero(target_img)  # find the non zero elements (targets)
 y = target_coords[0] - 256  # offset, middle of 512,512 image is 0,0
@@ -37,8 +53,12 @@ y_spots = y
 z_spots = z
 I_spots = I
 N_spots = N
-N_iterations = 10
+N_iterations = 1000
 method = 2
+# 0: Complex addition of "Lenses and Prisms", no optimization (3D)
+# 1: Weighted Gerchberg-Saxton algorithm using Fresnel propagation (3D).
+# 2: Weighted Gerchberg-Saxton algorithm using fast fourier transforms (2D)
+
 h_pSLMstart = (np.random.random(512*512)-0.5)*2*np.pi  # the starting phase mask (seed)
 # h_pSLMstart = np.ones(512*512)
 
@@ -49,6 +69,7 @@ c_h_pSLMstart_type = c_float * (512 * 512)
 c_LUTfile_type = c_char * 256
 c_TrueFrames_type = c_ushort
 c_deviceId_type = c_int32
+
 # for 'generate' function
 c_h_test_type = c_float * (512 * 512)
 c_h_pSLM_type = c_ubyte * (512 * 512)
@@ -68,6 +89,7 @@ c_h_pSLMstart = c_h_pSLMstart_type()
 c_LUTfile = c_LUTfile_type()
 c_TrueFrames = c_TrueFrames_type(TrueFrames)
 c_deviceId = c_deviceId_type(deviceId)
+
 # for 'generate' function
 c_h_test = h_test
 c_h_pSLM = c_h_pSLM_type()
@@ -140,8 +162,7 @@ h_pSLM_16b = np.reshape(h_pSLM_16b, [512, 512])
 directory, filename = os.path.split(target_img_path)
 filename_noext = os.path.splitext(filename)[0]
 today_date = time.strftime('%Y%m%d')
-savedir = os.path.join(directory, filename_noext + "_" + today_date +
-                       "_CUDAphase")
+savedir = os.path.join(directory, 'CUDAPhaseMasks')
 if not os.path.exists(savedir):
     os.makedirs(savedir)
 
@@ -149,11 +170,11 @@ if not os.path.exists(savedir):
 savename = os.path.join(savedir, filename_noext + "_" + today_date +
                         "_CUDAphase_" + "m" + str(method) + "_i" +
                         str(N_iterations) + ".tiff")
-imsave(savename, h_pSLM_16b)
+tifffile.imsave(savename, h_pSLM_16b)
 
-# save reconstructed targets image for sanity check
+# reconstructed targets image for sanity check
 reconstructed_targets_img = np.zeros([512, 512], dtype=np.uint16)
 reconstructed_targets_img[y+256, x+256] = 255
-savename = os.path.join(savedir, filename_noext + "_" + today_date +
-                        "_TargetImg" + ".tiff")
-imsave(savename, reconstructed_targets_img)
+# savename = os.path.join(savedir, filename_noext + "_" + today_date +
+#                         "_TargetImg" + ".tiff")
+# imsave(savename, reconstructed_targets_img)
